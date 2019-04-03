@@ -1,0 +1,60 @@
+Qual o objetivo do comando cache em Spark?
+R.: Armazenar resultados intermediários em RDDs em nível de memória (MEMORY_ONLY)
+
+O mesmo código implementado em Spark é normalmente mais rápido que a implementação equivalente em
+MapReduce. Por quê?
+R.: Porque o Spark viabiliza o processamento de dados em memória, quando o MapReduce necessida leitura e escrita de arquivos em disco
+
+Qual é a função do SparkContext?
+R.: SparkContext é o principal ponto de acesso ao ambiente de execução do Spark. O objeto faz conexão com o cluster do Spark e
+viabiliza, assim, a criação de váriavies, RDDs, jobs e afins.
+
+Explique com suas palavras o que é Resilient Distributed Datasets (RDD)
+R.: RDDs são conjuntos de dados compostos por registros distribuidos em clusters e que são tolerantes a falhas,
+devido a replicação desses registros em diferentes clusters
+
+GroupByKey é menos eficiente que reduceByKey em grandes dataset. Por quê?
+R.: Porque quando usamos GroupByKey a tranferencia de dados entre executors é maior pois os dados são enviamos sem nenhuma combinação.
+Usando ReduceByKey, os dados são primeiramente agredados e depois enviados para o próximo executor, trafegando menos dados.
+
+Explique o que o código Scala abaixo faz.
+  val textFile = sc.textFile("hdfs://...")
+  val counts = textFile.flatMap(line => line.split(" "))
+  .map(word => (word, 1))
+  .reduceByKey(_ + _)
+  counts.saveAsTextFile("hdfs://...")
+
+R.: Le arquivos de texto em um diretório do hdfs, quebra em linhas cada palavra (separada por espaço), adiciona um contador "1" para
+cada palavra e por fim agregado as palavras somando os contadores e grava em disco o resultados. Basicamente um contador de palavras.
+
+Questões referentes a "HTTP requests to the NASA Kennedy Space Center WWW server"
+val requestsRDD = sc.textFile("hdfs://...")
+val splitRequestsRDD = requestsRDD.map(linha => linha.split("\n"))
+
+1. Número de hosts únicos.
+val Hosts = splitRequestsRDD.map(linha => linha(0)).distinct
+Hosts.count()
+
+2. O total de erros 404.
+val Codigos = splitRequestsRDD.map(linha => linha(3))
+val Erros = Codigos.filter(linha => linha.contains("404"))
+Erros.count()
+
+3. Os 5 URLs que mais causaram erro 404.
+val errosPorURL = Erros.map(url => (url(2), 1))
+errosPorURL.reduceByKey((a,b) => a + b)
+                       .map(x => (x._2, x._1))
+                       .sortByKey(false)
+                       .take(5)
+
+4. Quantidade de erros 404 por dia.
+import sqlContext.implicits._
+
+val ErrosDF = Erros.toDF("hosts", "date", "request", "return", "bytes")
+ErrosDF.registerTempTable("ErrosDF")
+sqlContext.sql("SELECT to_date(REPLACE(REPLACE(date, '[', ''), ']', '')), COUNT(date) FROM ErrosDF")
+
+5. O total de bytes retornados.
+val requestsDF = splitRequestsRDD.toDF("hosts", "date", "request", "return", "bytes")
+requestsDF.registerTempTable("requestsDF")
+sqlContext.sql("SELECT SUM(bytes) FROM requestsDF")
